@@ -10,6 +10,10 @@ import json
 import re
 
 from webcompat import app
+from webcompat.db import Site
+from webcompat.db import site_db
+from webcompat.form import domain_name
+from webcompat.helpers import extract_url
 from webcompat.helpers import proxy_request
 
 
@@ -78,3 +82,25 @@ def get_payload_signature(key, payload):
     '''Compute the payload signature given a key.'''
     mac = hmac.new(key, msg=payload, digestmod=hashlib.sha1)
     return mac.hexdigest()
+
+
+def extract_priority_label(body):
+    """Parse url from body and query the priority labels."""
+    host_name = domain_name(extract_url(body))
+
+    if host_name:
+        priorities = ['critical', 'important', 'normal']
+
+        # Find host_name in DB
+        for site in site_db.query(Site).filter_by(url=host_name):
+            return 'priority-{}'.format(priorities[site.priority-1])
+
+        # No host_name in DB, find less-level domain (>2)
+        # If host_name is lv4.lv3.example.com, find lv3.example.com/example.com
+        domains = host_name.split('.')
+        for i in list(reversed(range(2, len(domains)))):
+            shorten_domain_name = '.'.join(domains[(len(domains)-i):])
+            for site in site_db.query(Site).filter_by(url=shorten_domain_name):
+                return 'priority-{}'.format(priorities[site.priority-1])
+
+    return None

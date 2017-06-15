@@ -11,7 +11,9 @@ import os
 import sys
 import unittest
 
+from mock import patch
 from webcompat import app
+from webcompat.db import Site
 from webcompat.webhooks import helpers
 
 # Add webcompat module to import path
@@ -52,6 +54,9 @@ class TestWebhook(unittest.TestCase):
         """
         self.issue_body2 = """
         <!-- @browser: Foobar -->
+        """
+        self.issue_body3 = """
+        **URL**: https://www.google.com/
         """
 
     def tearDown(self):
@@ -116,6 +121,16 @@ class TestWebhook(unittest.TestCase):
         self.assertEqual(browser_label, 'browser-firefox')
         browser_label_none = helpers.extract_browser_label(self.issue_body2)
         self.assertEqual(browser_label_none, None)
+
+    def test_extract_priority_label(self):
+        """Extract priority label."""
+        with patch('webcompat.db.site_db.query') as db_mock:
+            db_mock.return_value.filter_by.return_value =
+            [Site('google.com', 1, '', 1)]
+            priority_label = helpers.extract_priority_label(self.issue_body3)
+            self.assertEqual(priority_label, 'priority-critical')
+        priority_label_none = helpers.extract_priority_label(self.issue_body)
+        self.assertEqual(priority_label_none, None)
 
 
 if __name__ == '__main__':
